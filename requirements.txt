@@ -1,7 +1,7 @@
-Flask>=2.3.0
-Flask-Cors>=3.0.10
-requests>=2.31.0
-PyMuPDF>=1.22.5   # fitz için
-tabula-py>=2.7.0
-pandas>=2.1.0
-serpapi>=1.0.0
+Flask
+Flask-Cors
+requests
+PyMuPDF
+tabula-py
+pandas
+serpapi
