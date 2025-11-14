@@ -76,11 +76,30 @@ def get_today_menu(menus):
     return None
 
 
+META_FILE = "menu_meta.json"
+PDF_FILE = "menu.pdf"
+
 def set_new_list():
-    if not os.path.exists("menu.pdf"):
+    today = datetime.now()
+    download_pdf_flag = False
+
+    if os.path.exists(META_FILE):
+        with open(META_FILE, "r") as f:
+            meta = json.load(f)
+        last_year = meta.get("year")
+        last_month = meta.get("month")
+        if last_year != today.year or last_month != today.month:
+            download_pdf_flag = True
+    else:
+        download_pdf_flag = True
+
+    if not os.path.exists(PDF_FILE) or download_pdf_flag:
         links = search_pdf_links()
         download_pdf(links[0])
-    return extract_menus_from_pdf("menu.pdf")
+        with open(META_FILE, "w") as f:
+            json.dump({"year": today.year, "month": today.month}, f)
+
+    return extract_menus_from_pdf(PDF_FILE)
 
 
 def extract_menus_from_pdf(pdf_path):
@@ -139,5 +158,6 @@ def extract_menus_from_pdf(pdf_path):
                 i += 1
 
     return all_data
+
 
 
