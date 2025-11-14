@@ -1,6 +1,7 @@
-FROM openjdk:17-slim
+# Java 17 + JDK image
+FROM openjdk:17-jdk
 
-# Python kurulumu
+# Python kur
 RUN apt-get update && apt-get install -y python3 python3-pip && apt-get clean
 
 # Çalışma dizini
