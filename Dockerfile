@@ -1,14 +1,14 @@
-FROM python:3.13-slim
+FROM openjdk:17-slim
 
-# Java kur
-RUN apt-get update && apt-get install -y openjdk-17-jdk && apt-get clean
+# Python kurulumu
+RUN apt-get update && apt-get install -y python3 python3-pip && apt-get clean
 
 # Çalışma dizini
 WORKDIR /app
 
 # Gereksinimler
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Kodları kopyala
 COPY . .
