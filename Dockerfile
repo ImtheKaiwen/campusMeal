@@ -1,5 +1,5 @@
 # Java 17 + JDK image
-FROM openjdk:17-jdk-slim
+FROM openjdk:17
 
 # Python kur
 RUN apt-get update && apt-get install -y python3 python3-pip && apt-get clean
@@ -20,4 +20,3 @@ EXPOSE 5000
 
 # Start komutu
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000"]
-
