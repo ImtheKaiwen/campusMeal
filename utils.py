@@ -77,8 +77,9 @@ def get_today_menu(menus):
 
 
 def set_new_list():
-    links = search_pdf_links()
-    download_pdf(links[0])
+    if not os.path.exists("menu.pdf"):
+        links = search_pdf_links()
+        download_pdf(links[0])
     return extract_menus_from_pdf("menu.pdf")
 
 
@@ -138,4 +139,5 @@ def extract_menus_from_pdf(pdf_path):
                 i += 1
 
     return all_data
+
 
