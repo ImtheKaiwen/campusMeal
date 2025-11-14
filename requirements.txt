@@ -6,3 +6,4 @@ tabula-py
 pandas
 serpapi
 gunicorn
+JPype1
