@@ -5,3 +5,4 @@ PyMuPDF
 tabula-py
 pandas
 serpapi
+gunicorn
