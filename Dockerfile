@@ -1,5 +1,6 @@
 # Java 17 + JDK image
-FROM openjdk:17.0.2-jdk
+FROM openjdk:17.0.2-jdk-bullseye
+
 
 
 # Python kur
@@ -21,4 +22,5 @@ EXPOSE 5000
 
 # Start komutu
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000"]
+
 
