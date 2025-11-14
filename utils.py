@@ -5,6 +5,8 @@ import pandas as pd
 import serpapi
 import re
 from datetime import datetime
+import os
+import json
 
 def download_pdf(url, filename="menu.pdf"):
     r = requests.get(url)
@@ -158,6 +160,7 @@ def extract_menus_from_pdf(pdf_path):
                 i += 1
 
     return all_data
+
 
 
 
