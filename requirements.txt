@@ -7,3 +7,4 @@ pandas
 serpapi
 gunicorn
 JPype1
+beautifulsoup4
