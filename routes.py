@@ -35,3 +35,26 @@ def get_latest_menu():
             status=500, # Sunucu Hatası
             mimetype='application/json'
         )
+
+@bp.route("/ktü/menu", methods=["GET"])
+def ktü_menu():
+    """
+    KTÜ yemek menüsünü SKS sayfasından çekip JSON olarak döner.
+    Bu, test amaçlı basit bir scraper fonksiyonudur.
+    """
+    try:
+        menu = get_ktu_menu()
+        if not menu:
+            return Response(
+                json.dumps({"message": "KTÜ menü verisi alınamadı veya boş."}, ensure_ascii=False),
+                status=500,
+                mimetype='application/json'
+            )
+        return jsonify(menu)
+    except Exception as e:
+        print(f"KTÜ menü çekilirken hata oluştu: {e}")
+        return Response(
+            json.dumps({"error": f"Beklenmedik bir hata oluştu: {str(e)}"}, ensure_ascii=False),
+            status=500,
+            mimetype='application/json'
+        )
