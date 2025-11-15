@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 import os
 import json
-
+from bs4 import BeautifulSoup
 # --- Sabit Dosya İsimleri ---
 META_FILE = "menu_meta.json"
 PDF_FILE = "menu.pdf"
@@ -206,3 +206,53 @@ def get_menu_data():
             print(f"HATA: {MENU_DATA_JSON} dosyası bozuk. Yeniden oluşturuluyor.")
             # JSON dosyası bozuksa, ağır işlemi tetikle
             return update_menu_data()
+
+def get_ktu_menu():
+    url = "https://sks.ktu.edu.tr/yemeklistesi"
+    resp = requests.get(url)
+    resp.encoding = "utf-8"
+    html = resp.text
+
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table")
+    if not table:
+        return {}
+
+    day_tr_map = {
+        "Monday": "PAZARTESİ",
+        "Tuesday": "SALI",
+        "Wednesday": "ÇARŞAMBA",
+        "Thursday": "PERŞEMBE",
+        "Friday": "CUMA",
+        "Saturday": "CUMARTESİ",
+        "Sunday": "PAZAR"
+    }
+
+    result = {}
+
+    rows = table.find_all("tr")
+    for row in rows[1:]:  # Başlık satırını atla
+        cols = row.find_all("td")
+        if len(cols) < 6:
+            continue
+
+        date_str = cols[0].get_text(strip=True)
+        try:
+            date_obj = datetime.strptime(date_str, "%d.%m.%Y")
+            day_name = day_tr_map[date_obj.strftime("%A")]
+        except:
+            continue
+
+        dishes = [
+            cols[1].get_text(strip=True),
+            cols[2].get_text(strip=True),
+            cols[3].get_text(strip=True),
+            cols[4].get_text(strip=True)
+        ]
+
+        result[date_str] = {
+            "day": day_name,
+            "dishes": dishes
+        }
+
+    return result
