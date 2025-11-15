@@ -1,58 +1,28 @@
-from flask import Blueprint, jsonify, Response
-# Sadece 'get_menu_data' fonksiyonunu import ediyoruz
-from utils import get_menu_data
+from flask import Blueprint, request, jsonify, Response
+from utils import update_menu_cache, get_ktu_menu, get_kbu_menu
 import json
 
 bp = Blueprint("bp", __name__)
 
-@bp.route("/getlatestmenu", methods=["GET"])
-def get_latest_menu():
-    """
-    En güncel menü verisini (tüm ayın) JSON cache dosyasından okur.
-    Cache güncel değilse, utils.py'deki fonksiyon yeni veriyi oluşturur.
-    """
-    try:
-        # Sadece HAFİF (cache okuyan) fonksiyonu çağırıyoruz.
-        menu = get_menu_data() 
-        
-        # Menü verisi (menu_data.json) bir sebepten boşsa veya oluşturulamamışsa
-        if not menu:
-             return Response(
-                json.dumps({"message": "Menü verisi oluşturulamadı veya boş."}, ensure_ascii=False),
-                status=500, # Sunucu taraflı bir sorun olduğunu belirtir
-                mimetype='application/json'
-            )
+@bp.route("/menu", methods=["GET"])
+def menu():
+    uni = request.args.get("university", "KBÜ").upper()
 
-        # Başarılı: Tüm menü sözlüğünü (cache'lenen) döndür
-        return jsonify(menu)
-            
-    except Exception as e:
-        # utils.py'de bir hata oluşursa (örn: SKS sitesi çöktü, PDF linki bulunamadı)
-        # Bu hatayı yakalayıp düzgün bir JSON mesajı olarak döneriz.
-        print(f"Hata oluştu: {e}")
-        return Response(
-            json.dumps({"error": f"Beklenmedik bir hata oluştu: {str(e)}"}, ensure_ascii=False),
-            status=500, # Sunucu Hatası
-            mimetype='application/json'
-        )
+    if uni == "KTÜ":
+        fetch_fn = get_ktu_menu
+    else:  
+        fetch_fn = get_kbu_menu
 
-@bp.route("/ktü/menu", methods=["GET"])
-def ktü_menu():
-    """
-    KTÜ yemek menüsünü SKS sayfasından çekip JSON olarak döner.
-    Bu, test amaçlı basit bir scraper fonksiyonudur.
-    """
     try:
-        menu = get_ktu_menu()
-        if not menu:
+        menu_data = update_menu_cache(fetch_fn, uni)
+        if not menu_data:
             return Response(
-                json.dumps({"message": "KTÜ menü verisi alınamadı veya boş."}, ensure_ascii=False),
+                json.dumps({"message": f"{uni} menü verisi alınamadı veya boş."}, ensure_ascii=False),
                 status=500,
                 mimetype='application/json'
             )
-        return jsonify(menu)
+        return jsonify(menu_data)
     except Exception as e:
-        print(f"KTÜ menü çekilirken hata oluştu: {e}")
         return Response(
             json.dumps({"error": f"Beklenmedik bir hata oluştu: {str(e)}"}, ensure_ascii=False),
             status=500,
