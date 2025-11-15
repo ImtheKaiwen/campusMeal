@@ -82,6 +82,7 @@ META_FILE = "menu_meta.json"
 PDF_FILE = "menu.pdf"
 
 def set_new_list():
+    import json
     today = datetime.now()
     download_pdf_flag = False
 
@@ -160,6 +161,7 @@ def extract_menus_from_pdf(pdf_path):
                 i += 1
 
     return all_data
+
 
 
 
