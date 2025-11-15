@@ -1,19 +1,37 @@
 from flask import Blueprint, jsonify, Response
-from utils import set_new_list, get_today_menu
+# Sadece 'get_menu_data' fonksiyonunu import ediyoruz
+from utils import get_menu_data
 import json
+
 bp = Blueprint("bp", __name__)
 
 @bp.route("/getlatestmenu", methods=["GET"])
 def get_latest_menu():
-    menu = set_new_list()
-    today_menu = get_today_menu(menu)
+    """
+    En güncel menü verisini (tüm ayın) JSON cache dosyasından okur.
+    Cache güncel değilse, utils.py'deki fonksiyon yeni veriyi oluşturur.
+    """
+    try:
+        # Sadece HAFİF (cache okuyan) fonksiyonu çağırıyoruz.
+        menu = get_menu_data() 
+        
+        # Menü verisi (menu_data.json) bir sebepten boşsa veya oluşturulamamışsa
+        if not menu:
+             return Response(
+                json.dumps({"message": "Menü verisi oluşturulamadı veya boş."}, ensure_ascii=False),
+                status=500, # Sunucu taraflı bir sorun olduğunu belirtir
+                mimetype='application/json'
+            )
 
-    if today_menu:
+        # Başarılı: Tüm menü sözlüğünü (cache'lenen) döndür
         return jsonify(menu)
-    else:
+            
+    except Exception as e:
+        # utils.py'de bir hata oluşursa (örn: SKS sitesi çöktü, PDF linki bulunamadı)
+        # Bu hatayı yakalayıp düzgün bir JSON mesajı olarak döneriz.
+        print(f"Hata oluştu: {e}")
         return Response(
-            json.dumps({"message": "Bugün için menü bulunamadı."}, ensure_ascii=False),
+            json.dumps({"error": f"Beklenmedik bir hata oluştu: {str(e)}"}, ensure_ascii=False),
+            status=500, # Sunucu Hatası
             mimetype='application/json'
         )
-
-
