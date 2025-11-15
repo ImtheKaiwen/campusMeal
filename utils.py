@@ -1,118 +1,68 @@
 import requests
-import fitz
 import tabula
-import pandas as pd
+import pandas as pd # tabula, pandas dataframe'i döndürdüğü için gerekli
 import serpapi
 import re
 from datetime import datetime
 import os
 import json
 
-def download_pdf(url, filename="menu.pdf"):
+# --- Sabit Dosya İsimleri ---
+META_FILE = "menu_meta.json"
+PDF_FILE = "menu.pdf"
+# İşlenmiş veriyi saklayacağımız yer:
+MENU_DATA_JSON = "menu_data.json"
+
+# --- 1. PDF İndirme ve Arama ---
+
+def download_pdf(url, filename=PDF_FILE):
+    """Verilen URL'den PDF dosyasını indirir."""
+    print(f"PDF indiriliyor: {url}")
     r = requests.get(url)
     with open(filename, "wb") as f:
         f.write(r.content)
+    print(f"{filename} dosyası başarıyla indirildi.")
     return filename
 
-def extract_pdf_text(file_path):
-    doc = fitz.open(file_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
-
-def pdf_to_excel(path="menu.pdf",output = "output.xlsx"):
-    tables = tabula.read_pdf(path, pages="all", multiple_tables=True)
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for i, table in enumerate(tables):
-            table.to_excel(writer, sheet_name=f"Sayfa_{i+1}", index=False)
-
 def search_pdf_links(query="KBÜ yemek listesi"):
+    """Google'da arama yaparak en güncel PDF linkini bulur."""
     SERPAPI_KEY = "30d1fe0270635bcfd931d6b5afe8d20d773f4542c176c0f703e1ec61ea8724b4"
     PDF_BASE_DOMAIN = "https://sks.karabuk.edu.tr/yuklenen/dosyalar/"
     client_serp = serpapi.Client(api_key=SERPAPI_KEY)
 
+    print("Google'da en güncel menü linki aranıyor...")
     result = client_serp.search({
         "q": query,
         "engine": "google"
     })
+    
     links = []
     for item in result.get("organic_results", []):
         link = item.get("link")
         if link and link.startswith(PDF_BASE_DOMAIN) and link.endswith(".pdf"):
             links.append(link)
-    return links
+    
+    if not links:
+        raise Exception("Google aramasında SKS'den PDF linki bulunamadı.")
+        
+    print(f"En güncel link bulundu: {links[0]}")
+    # En güncel olanın ilk link olduğunu varsayıyoruz
+    return links[0]
 
-def extract_menus_from_excel(path):
-    sheets = pd.read_excel(path, sheet_name=None , engine='openpyxl')
-    all_data = {}
-
-    date_pattern = re.compile(r'\b\d{2}\.\d{2}\.\d{4}\b')
-
-    for sheet_name, df in sheets.items():
-        for col in df.columns:
-            col_values = df[col].dropna().astype(str).tolist()
-
-            current_date = None
-
-            for value in col_values:
-                if date_pattern.search(value):
-                    current_date = value.strip()
-                    if current_date not in all_data:
-                        all_data[current_date] = []
-                elif current_date:
-                    if len(value.strip()) < 2:
-                        continue
-                    all_data[current_date].append(value.strip())
-
-    return all_data
-
-def get_today_menu(menus):
-    today = datetime.now().strftime("%d.%m.%Y")
-    for key in menus:
-        match = re.match(r"(\d{2}\.\d{2}\.\d{4})", key)
-        if match:
-            key_date = match.group(1)
-            if key_date == today:
-                return menus[key]
-    return None
-
-
-META_FILE = "menu_meta.json"
-PDF_FILE = "menu.pdf"
-
-def set_new_list():
-    import json
-    today = datetime.now()
-    download_pdf_flag = False
-
-    if os.path.exists(META_FILE):
-        with open(META_FILE, "r") as f:
-            meta = json.load(f)
-        last_year = meta.get("year")
-        last_month = meta.get("month")
-        if last_year != today.year or last_month != today.month:
-            download_pdf_flag = True
-    else:
-        download_pdf_flag = True
-
-    if not os.path.exists(PDF_FILE) or download_pdf_flag:
-        links = search_pdf_links()
-        download_pdf(links[0])
-        with open(META_FILE, "w") as f:
-            json.dump({"year": today.year, "month": today.month}, f)
-
-    return extract_menus_from_pdf(PDF_FILE)
-
+# --- 2. PDF İşleme (Ağır İşlem) ---
 
 def extract_menus_from_pdf(pdf_path):
     """
     PDF'den yemek menülerini tarih bazlı olarak çıkarır.
-    Hücrede birden fazla tarih veya yemek varsa düzgün şekilde ayırır.
+    (Bu sizin orijinal fonksiyonunuz, iyi çalışıyorsa dokunmayalım)
     """
+    print(f"{pdf_path} dosyası 'tabula' ile işleniyor... (Bu işlem yavaş olabilir)")
     tables = tabula.read_pdf(pdf_path, pages="all", multiple_tables=True)
+    if not tables:
+        print("PDF içinde 'tabula' tarafından okunabilen tablo bulunamadı.")
+        return {}
+        
     df = tables[0]
-
     date_day_pattern = re.compile(r'(\d{2}\.\d{2}\.\d{4})\s+(\w+)', re.UNICODE)
     all_data = {}
     for col in df.columns:
@@ -151,6 +101,7 @@ def extract_menus_from_pdf(pdf_path):
                 while j < len(col_values) and not date_day_pattern.findall(col_values[j]):
                     val = col_values[j].strip()
                     if val.lower() != "nan" and val != "":
+                        # Orijinal mantığınızdaki ')' ve '|' ayırması
                         dishes = [d.strip()+')' for d in val.replace(')', ')|').split('|') if d.strip()]
                         mid = len(dishes)//2
                         all_data[date1]["dishes"].append(' '.join(dishes[:mid]))
@@ -159,10 +110,99 @@ def extract_menus_from_pdf(pdf_path):
                 i = j
             else:
                 i += 1
-
+                
+    print("PDF başarıyla işlendi ve menü verisi çıkarıldı.")
     return all_data
 
+# --- 3. Cache (JSON) Yönetimi ---
 
+def update_menu_data():
+    """
+    Bu, "AĞIR" fonksiyondur. 
+    PDF'i indirir, Tabula ile işler ve sonucu JSON'a yazar.
+    Sadece gerektiğinde (ayda bir) çalışmalıdır.
+    """
+    print("Yeni menü verisi oluşturuluyor... (Ağır işlem)")
+    try:
+        # 1. En güncel PDF linkini bul
+        pdf_url = search_pdf_links()
+        
+        # 2. PDF'i indir
+        download_pdf(pdf_url)
+        
+        # 3. PDF'i işle (En ağır kısım)
+        menu_data = extract_menus_from_pdf(PDF_FILE)
+        
+        if not menu_data:
+            print("PDF işlenemedi, menü verisi boş. Cache güncellenmiyor.")
+            return {}
+            
+        # 4. İşlenmiş veriyi JSON'a kaydet (Türkçe karakterler için utf-8)
+        with open(MENU_DATA_JSON, "w", encoding="utf-8") as f:
+            json.dump(menu_data, f, ensure_ascii=False, indent=2)
+            
+        # 5. Meta dosyasını güncelle
+        today = datetime.now()
+        with open(META_FILE, "w", encoding="utf-8") as f:
+            json.dump({"year": today.year, "month": today.month}, f)
+            
+        # 6. (YENİ) Başarıyla işlendi, artık PDF'e gerek yok.
+        try:
+            if os.path.exists(PDF_FILE):
+                os.remove(PDF_FILE)
+                print(f"{PDF_FILE} başarıyla işlendi ve silindi.")
+        except Exception as e:
+            # Silme işlemi başarısız olursa ana program çökmesin, sadece uyarı versin
+            print(f"Uyarı: {PDF_FILE} silinirken bir hata oluştu: {e}")
+            
+        print("Yeni menü verisi başarıyla oluşturuldu ve cache'lendi.")
+        return menu_data
+        
+    except Exception as e:
+        print(f"Menü güncellenirken hata oluştu: {e}")
+        # Hata durumunda boş bir sözlük veya eski veri döndürülebilir
+        return {}
 
+def get_menu_data():
+    """
+    Bu, "HAFİF" fonksiyondur. API bunu çağırır.
+    Cache (JSON) dosyasının güncel olup olmadığını kontrol eder.
+    Güncelse, sadece dosyadan okur. Değilse, ağır fonksiyonu tetikler.
+    """
+    today = datetime.now()
+    needs_update = False
 
+    # 1. Hiç JSON dosyası yoksa, güncelleme gerekir
+    if not os.path.exists(MENU_DATA_JSON):
+        print("Cache (menu_data.json) bulunamadı, güncelleme gerekiyor.")
+        needs_update = True
+    else:
+        # 2. Meta dosyası yoksa veya ay/yıl uyuşmuyorsa güncelleme gerekir
+        try:
+            if not os.path.exists(META_FILE):
+                print("Meta dosyası bulunamadı, güncelleme gerekiyor.")
+                needs_update = True
+            else:
+                with open(META_FILE, "r") as f:
+                    meta = json.load(f)
+                if meta.get("year") != today.year or meta.get("month") != today.month:
+                    print("Yeni ay/yıl algılandı, güncelleme gerekiyor.")
+                    needs_update = True
+        except json.JSONDecodeError:
+            print("Meta dosyası bozuk, güncelleme gerekiyor.")
+            needs_update = True
 
+    # 3. Güncelleme kararı
+    if needs_update:
+        # Ağır işlemi çalıştır ve sonucu döndür
+        return update_menu_data()
+    else:
+        # Sadece hızlıca cache'den oku
+        print("Cache (menu_data.json) yükleniyor...")
+        try:
+            with open(MENU_DATA_JSON, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print(f"HATA: {MENU_DATA_JSON} dosyası bozuk. Yeniden oluşturuluyor.")
+            # JSON dosyası bozuksa, ağır işlemi tetikle
+            return update_menu_data()
